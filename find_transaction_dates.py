@@ -2,11 +2,7 @@ import pdfplumber
 import pandas as pd
 import re
 from string import ascii_lowercase
-from itertools import groupby
-from statistics import mean
-from collections import Counter
 import os
-from collections import Counter
 from datetime import datetime
 from itertools import permutations
 warnings.filterwarnings("ignore")

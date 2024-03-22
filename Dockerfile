@@ -8,4 +8,4 @@ RUN pip install --no-cache-dir -r /code/requirements.txt
 
 COPY ./ /code
 
-CMD python /code/Utrained_Main.py
+CMD python /code/Untrained_Main.py

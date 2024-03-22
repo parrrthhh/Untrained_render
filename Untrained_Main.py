@@ -23,14 +23,13 @@ from string import ascii_lowercase
 from itertools import groupby
 import pandas as pd
 import pdfplumber
-import pdfplumber
 from office365.sharepoint.files.move_operations import MoveOperations
 from process_given_pdf import main as given_pdf_main
 
 
 
 config_obj = configparser.ConfigParser()
-config_obj.read(r'D:\Advait Invoice code\config.ini')
+config_obj.read(r'/code/config.ini')
 sppaths = config_obj['spdl_path']
 spparam = config_obj['spdoclib']
 sprlpath = config_obj['sp_relative_path']

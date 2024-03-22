@@ -21,7 +21,6 @@ from office365.runtime.client_request_exception import ClientRequestException
 from ast import literal_eval
 from string import ascii_lowercase
 from itertools import groupby
-import pandas as pd
 import pdfplumber
 from office365.sharepoint.files.move_operations import MoveOperations
 from process_given_pdf import main as given_pdf_main

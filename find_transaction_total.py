@@ -1,14 +1,9 @@
-import tqdm
-import argparse
-import os
-import glob
 import pdfplumber
 import pandas as pd
 import re
 from string import ascii_lowercase
 from itertools import groupby
 from statistics import mean
-import warnings
 import os
 from collections import Counter
 

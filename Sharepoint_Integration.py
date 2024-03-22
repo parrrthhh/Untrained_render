@@ -21,7 +21,7 @@ from office365.sharepoint.attachments.creation_information import (
 
 
 config_obj = configparser.ConfigParser()
-config_obj.read(r'D:\Advait Invoice code\config.ini')
+config_obj.read(r'/code/config.ini')
 
 sppaths = config_obj['spdl_path']
 spparam = config_obj['spdoclib']

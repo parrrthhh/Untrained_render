@@ -5,6 +5,7 @@ from string import ascii_lowercase
 import os
 from datetime import datetime
 from itertools import permutations
+import warnings
 warnings.filterwarnings("ignore")
 
 # date from : _

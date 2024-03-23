@@ -1,6 +1,5 @@
 import os
 import glob
-import pdfplumber
 from pathlib import Path
 from urllib.error import HTTPError
 import shutil

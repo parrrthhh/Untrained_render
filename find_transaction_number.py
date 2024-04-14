@@ -3,16 +3,14 @@ import re
 import os
 
 
+invoice_pattern = re.compile(r"invoice\s*(no|number|id)?\.?\s*[:.#\-\s]+\s*([\w\d\-\#\/]+)", re.IGNORECASE)
 
-#pdf_names = ['Vistara 1.pdf','VIP 1.pdf' , 'Vodafone.pdf', 'Indigo 1.pdf',  'MCC 1.pdf', 'Walmart PO 1.pdf' ,  'DMART PO 1.pdf', 'MTNL.pdf']
+bill_pattern = re.compile(r"bill\s*(no|number|id)?\.?\s*[:.#\-\s]*\s*([\w\d\-\#\/]+)", re.IGNORECASE)
 
-invoice_pattern = re.compile(r"invoice\s*(no|number|id)?\.?\s*[:.#\-\s]*\s*([\w\d]+)", re.IGNORECASE)
-bill_pattern = re.compile(r"bill\s*(no|number|id)?\.?\s*[:.#\-\s]*\s*([\w\d]+)", re.IGNORECASE)
-order_pattern = re.compile(r"order\s*(no|number|id)?\.?\s*[:.#\s-]*\s*([\w\d]+)", re.IGNORECASE)
-#purchase_order_pattern = re.compile(r"(purchase\s+order|p\.?\s*o)\s*(no|number)?\.?\s*[:.#\s-]*\s*([\w\d]+)", re.IGNORECASE)
-purchase_order_pattern = re.compile(r"(purchase\s+order|p\.?\s*o\.?)\s*(no|number)?\.?\s*[:.#\s-]*\s*([\w\d]+)", re.IGNORECASE)
+order_pattern = re.compile(r"order\s*(no|number|id)?\.?\s*[:.#\s-]*\s*([\w\d\-\#\/]+)", re.IGNORECASE)
+purchase_order_pattern = re.compile(r"(purchase\s+order|p\.?\s*o\.?)\s*(no|number|id)?\.?\s*[:.#\s-]*\s*([\w\d\-\#\/]+)", re.IGNORECASE)
 
-number_pattern = re.compile(r"(no|number)\.?\s*[:\s]*\s*([\w\d]+)", re.IGNORECASE)
+number_pattern = re.compile(r"(no|number)\.?\s*[:\s]*\s*([\w\d\-\#\/]+)", re.IGNORECASE)
 
 invoice_pattern_down_with_no = [
     re.compile(r"invoice\.?", re.IGNORECASE),
@@ -66,6 +64,16 @@ def capitalize_nos(result_dict):
         
         updated_dict[key] = new_value
 
+    if "purchase_order_number" in updated_dict and "order_number" in updated_dict:
+ 
+        if updated_dict["purchase_order_number"] == updated_dict["order_number"]:
+
+            del updated_dict["order_number"]
+
+        
+   # print("updated dict")
+   # print(updated_dict)
+
     return updated_dict
 
 
@@ -78,6 +86,7 @@ def find_variable_matches(pdf, regex_pattern, variable_name):
 
         # Use finditer to iterate over all matches as match objects
         for match in regex_pattern.finditer(text.lower()):
+           # print(match)
             #print("match group 0\n")
             #print(match.group(0))
             #print("match group 1\n")
@@ -87,6 +96,8 @@ def find_variable_matches(pdf, regex_pattern, variable_name):
             #print(match.group(0))
 
             variable_value = match.group(num_groups) 
+          #  print(match.group(0))
+          #  print(match.group(num_groups))
             all_matches.append({
                 variable_name: variable_value,
                 "page": page_num,
@@ -112,17 +123,23 @@ def check_variable_format(variable_type, variable_value):
 
     if variable_type == "transaction_number":
     
-        if len(variable_value) < 3:
+        if len(variable_value) < 4:
              return False
 
        
-        alphanumeric_pattern = re.compile(r'^(?=.*[0-9])(?=.*[a-zA-Z])[a-zA-Z0-9]+$')
+       # alphanumeric_pattern = re.compile(r'^(?=.*[0-9])(?=.*[a-zA-Z])[a-zA-Z0-9]+$')
+     #   alphanumeric_pattern = re.compile(r'^(?=.*[0-9])(?=.*[a-zA-Z])[\w]+$')
+      #  alphanumeric_pattern = re.compile(r'^[a-zA-Z0-9]+(?:[\/#-][a-zA-Z0-9]+)*$')
+     #   alphanumeric_pattern = re.compile(r'^(?=.*[0-9])[a-zA-Z0-9]+(?:[\/#-][a-zA-Z0-9]+)*$', re.IGNORECASE)
+        alphanumeric_pattern = re.compile(r'^(?=.*[0-9]).*(?:[a-zA-Z0-9]+[\/#-]?)+$', re.IGNORECASE)
+
 
    
         numeric_pattern = re.compile(r'^\d+$')
 
         # Validate against patterns
         if alphanumeric_pattern.match(variable_value) or numeric_pattern.match(variable_value):
+            #print("match")
             return True
         else:
             return False
@@ -133,33 +150,48 @@ def check_variable_format(variable_type, variable_value):
     return False  
 
 def find_variable_value_from_matches(match_results, key_variable_name, check_variable_name, check_format_func):
-
+  
+  #print("match results")
+  #print(match_results)
 
   variable_candidate_list = list(map( lambda x: x[key_variable_name], match_results))
   variable_name_list = [check_variable_name for i in range(len(variable_candidate_list))]
+  #print("variable_candidate_list")
+  #print(variable_candidate_list)
 
   list_boolean = list(map(check_format_func,  variable_name_list, variable_candidate_list))
 
   selected_elements = [element for boolean, element in zip(list_boolean, variable_candidate_list) if boolean]
-
-
-  if not selected_elements:
-        return None  
- 
-  element_frequency = Counter(selected_elements)
-
-  max_freq = max(element_frequency.values())
- 
-  freq_elements = [element for element, freq in element_frequency.items() if freq == max_freq]
   
-  if len(freq_elements) == 1:
-        return freq_elements[0]
- 
-  max_length_element = max(freq_elements, key=len)
+  #print("selected_elements")
+  #print(selected_elements)
 
-  max_length_elements = [elem for elem in freq_elements if len(elem) == len(max_length_element)]
+  if not selected_elements:      
+        return None
 
-  return max_length_elements[0]
+
+  max_length_element = max(selected_elements, key=len)
+  return max_length_element
+  #max_length_element = max(freq_elements, key=len)
+
+  #element_frequency = Counter(selected_elements)
+
+  #max_freq = max(element_frequency.values())
+
+  #freq_elements = [element for element, freq in element_frequency.items() if freq == max_freq]
+
+  #if len(freq_elements) == 1:
+  #          return freq_elements[0]
+
+  #max_length_element = max(freq_elements, key=len)
+
+  #max_length_elements = [elem for elem in freq_elements if len(elem) == len(max_length_element)]
+
+  #return max_length_elements[0]
+
+ # return max_length_elements[0]`
+
+
 
 def calculate_heuristic(bbox, cbox):
 
@@ -272,25 +304,24 @@ def find_variable_down_fcfs(pdf, patterns):
 
 def find_transcation_match_right_from_pdf_path(pdf_path, right_pattern, variable_name, check_variable_name, check_format_func):
 
-    with pdfplumber.open(pdf_path) as pdf:
-        matches = find_variable_matches(pdf, right_pattern,variable_name)
-        if matches:
-            selected_element = find_variable_value_from_matches(matches, variable_name, check_variable_name, check_format_func)
-            return {variable_name : selected_element}
+    pdf = pdfplumber.open(pdf_path)
+    matches = find_variable_matches(pdf, right_pattern,variable_name)
+    #print(matches)
+    if matches:
+        selected_element = find_variable_value_from_matches(matches, variable_name, check_variable_name, check_format_func)
+        return {variable_name : selected_element}
 
 def find_transcation_match_down_from_pdf_path(pdf_path, down_patterns, variable_name, score_function, check_format_func, check_variable_type):
 
-    with pdfplumber.open(pdf_path) as pdf:
-           # pdf = pdfplumber.open(pdf_path)
-            result = find_variable_down_with_closeness_score(pdf, down_patterns,score_function)
-            
-            if result:
+    pdf = pdfplumber.open(pdf_path)
+    result = find_variable_down_with_closeness_score(pdf, down_patterns,score_function)
+    if result:
 
-                if result[0]['best_candidate'] is not None:
+      if result[0]['best_candidate'] is not None:
 
-                    if check_format_func(check_variable_type, result[0]['best_candidate']):
+         if check_format_func(check_variable_type, result[0]['best_candidate']):
 
-                        return {variable_name : result[0]['best_candidate']}
+             return {variable_name : result[0]['best_candidate']}
 
 
 
@@ -311,18 +342,21 @@ down_patterns_dict_list = [down_patterns_dict_with_no, down_patterns_dict_withou
 
 other_right_patterns_dict = {"number" : number_pattern }
 
-down_patterns_dict_with_no["invoice_number"]
+#down_patterns_dict_with_no["invoice_number
 
 
 
 def find_right_transaction_from_patterns(pdf_path, right_patterns_dict, check_variable_type, check_format_func ):
 
+  results = {}
   for variable_name, pattern in right_patterns_dict.items():
-
+    
     result = find_transcation_match_right_from_pdf_path(pdf_path, pattern, variable_name, check_variable_type, check_format_func)
     if result is not None:
         if result[variable_name] is not None:
-              return result
+              results.update(result)
+
+  return results          
 
 def find_down_transaction_from_patterns(pdf_path, down_patterns_dict, score_function, check_variable_type, check_format_func ):
 
@@ -334,28 +368,57 @@ def find_down_transaction_from_patterns(pdf_path, down_patterns_dict, score_func
 
 def find_transaction_patterns(pdf_path, right_patterns_dict, down_patterns_dict_list, other_right_patterns_dict, check_format_func,score_function, check_variable_type):
 
-
-
-    result = find_right_transaction_from_patterns(pdf_path, right_patterns_dict, check_variable_type, check_format_func)
-    if result is not None:
-        return capitalize_nos(result)
+    R = {}
+    results = find_right_transaction_from_patterns(pdf_path, right_patterns_dict, check_variable_type, check_format_func)
+    #print(results)
+    if results is not None:
+        if len(results) > 0:
+          # print("here 1")
+            if list(results.keys())!=['order_number']:
+               return capitalize_nos(results)
+            else:
+                R.update(capitalize_nos(results))
+       
 
     for down_patterns_dict in down_patterns_dict_list:
+     # print("here 2")
       result = find_down_transaction_from_patterns(pdf_path, down_patterns_dict, score_function, check_variable_type, check_format_func)
       if result is not None:
-        return capitalize_nos(result)
+        #print("result")
+        #print(result)
+        if len(result) > 0:
 
+          #  print("here 2")
+            return capitalize_nos(result)
+    
+    if R is not None:
+        if len(R) > 0:
+            return R
 
     result = find_right_transaction_from_patterns(pdf_path, other_right_patterns_dict, check_variable_type, check_format_func)
     if result is not None:
+      #  print("here 3")
         return capitalize_nos(result)
 
 
+
 def number_main(path):
-    verbose=True
+
+    verbose = True
     output = find_transaction_patterns(path, right_patterns_dict, down_patterns_dict_list, other_right_patterns_dict, check_variable_format, calculate_heuristic, "transaction_number")
     if verbose:
    #     print(pdf_name)
          print(output)
     #     print('\n')
     return output
+
+#if __name__ == "__main__":
+
+#    parser = argparse.ArgumentParser(description="Extract transaction number from a given PDF file.")
+#    parser.add_argument("pdf_name", type=str, help="name of the PDF file to process.")
+#    parser.add_argument("--verbose", "-v", action="store_true", help="print detailed output.", default=True)
+#    parser.add_argument("--quiet", "-q", action="store_false", dest="verbose", help="suppress detailed output.")
+
+#    args = parser.parse_args()
+
+#    numbrt_main(args.pdf_name, args.verbose)

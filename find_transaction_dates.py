@@ -1,14 +1,10 @@
-
-import argparse
 import pdfplumber
 import pandas as pd
 import re
 from string import ascii_lowercase
-from itertools import groupby
 import warnings
 import os
 from datetime import datetime
-from itertools import permutations
 warnings.filterwarnings("ignore")
 
 # date from : _

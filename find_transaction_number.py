@@ -302,26 +302,28 @@ def find_variable_down_fcfs(pdf, patterns):
 
     return results
 
+
 def find_transcation_match_right_from_pdf_path(pdf_path, right_pattern, variable_name, check_variable_name, check_format_func):
 
-    pdf = pdfplumber.open(pdf_path)
-    matches = find_variable_matches(pdf, right_pattern,variable_name)
-    #print(matches)
-    if matches:
-        selected_element = find_variable_value_from_matches(matches, variable_name, check_variable_name, check_format_func)
-        return {variable_name : selected_element}
+    with pdfplumber.open(pdf_path) as pdf:
+
+            matches = find_variable_matches(pdf, right_pattern,variable_name)
+            #print(matches)
+            if matches:
+                selected_element = find_variable_value_from_matches(matches, variable_name, check_variable_name, check_format_func)
+                return {variable_name : selected_element}
 
 def find_transcation_match_down_from_pdf_path(pdf_path, down_patterns, variable_name, score_function, check_format_func, check_variable_type):
 
-    pdf = pdfplumber.open(pdf_path)
-    result = find_variable_down_with_closeness_score(pdf, down_patterns,score_function)
-    if result:
+    with pdfplumber.open(pdf_path) as pdf:
+        result = find_variable_down_with_closeness_score(pdf, down_patterns,score_function)
+        if result:
 
-      if result[0]['best_candidate'] is not None:
+            if result[0]['best_candidate'] is not None:
 
-         if check_format_func(check_variable_type, result[0]['best_candidate']):
+                if check_format_func(check_variable_type, result[0]['best_candidate']):
 
-             return {variable_name : result[0]['best_candidate']}
+                    return {variable_name : result[0]['best_candidate']}
 
 
 

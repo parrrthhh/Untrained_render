@@ -23,9 +23,14 @@ def main(pdf_name):
 
         if "invoice_number" in transaction_number_result:
                 invoice_number = transaction_number_result["invoice_number"]
+        
+        if "order_number" in transaction_number_result:
+              purchase_order_number = transaction_number_result["order_number"]
+              
 
-        if "purchase_order_number" in transaction_number_result or "order_number" in transaction_number_result:
+        if "purchase_order_number" in transaction_number_result:
                 purchase_order_number = transaction_number_result["purchase_order_number"]
+
 
         if "bill_number" in transaction_number_result:
                 bill_number = transaction_number_result["bill_number"]

@@ -1,11 +1,14 @@
+
+import argparse
 import pdfplumber
 import pandas as pd
 import re
 from string import ascii_lowercase
+from itertools import groupby
+import warnings
 import os
 from datetime import datetime
 from itertools import permutations
-import warnings
 warnings.filterwarnings("ignore")
 
 # date from : _
@@ -17,8 +20,6 @@ warnings.filterwarnings("ignore")
 # Due on _
 
 
-def is_date(string):
-    return not pd.isnull(pd.to_datetime(string, errors='coerce'))
 
 date_pattern = re.compile(r"(date|Date)[:\s]*", re.IGNORECASE)
 
@@ -37,10 +38,59 @@ date_transaction_patterns = {
 
 #pdf = pdfplumber.open("Vodafone.pdf")
 
+def check_variable_format(variable_type, variable_value):
+
+  
+    if variable_type == "transaction_number":
+        # Check minimum length
+        if len(variable_value) < 3:
+             return False
+        
+        alphanumeric_pattern = re.compile(r'^(?=.*[0-9])(?=.*[a-zA-Z])[a-zA-Z0-9]+$')
+        
+
+        numeric_pattern = re.compile(r'^\d+$')
+        
+        # Validate against patterns
+        if alphanumeric_pattern.match(variable_value) or numeric_pattern.match(variable_value):
+            return True
+        else:
+            return False
+    else:
+
+        if variable_type == "date":
+
+          return is_date(variable_value)
+
+    return False  
 
 
-def is_date(string):
+
+def is_date_old(string):
+   # print(" in is date")
+    #print(string)
     return not pd.isnull(pd.to_datetime(string, errors='coerce'))
+
+
+
+def is_date(date_str):
+
+    #cleaned_string = re.sub(r'\s+', ' ', string)  # Replace multiple spaces with a single space
+    #cleaned_string = re.sub(r'[^\w\s]', '', cleaned_string)  # Remove non-alphanumeric characters
+    
+    cleaned_string = date_str.replace('\xad', ' ')
+    cleaned_string = re.sub(r'\s+', ' ', cleaned_string).strip()
+    
+    
+    try:
+        # Attempt to convert the cleaned string to a datetime object
+        dt = pd.to_datetime(cleaned_string, errors='coerce')
+        return not pd.isnull(dt)
+    except ValueError:
+        # In case any unexpected error occurs during conversion
+        return False
+
+
 
 def is_day(word):
     try:
@@ -66,110 +116,12 @@ def is_year(word):
         return 1900 <= year <= 2100
     except ValueError:
         return False
-
-def find_date_matches_beta(pdf_path, date_pattern, date_transaction_patterns):
-    with pdfplumber.open(pdf_path) as pdf:
-        results = []  # To store results
-
-        for page_num, page in enumerate(pdf.pages):
-            words = page.extract_words()  # Extract words with bounding box info
-
-            for i, word in enumerate(words):
-                if date_pattern.match(word['text']):
-                    match_key = 'date'
-
-                    if i > 0 and any(pattern.match(words[i - 1]['text']) for pattern in date_transaction_patterns.values()):
-                        match_key = [key for key, pattern in date_transaction_patterns.items() if pattern.match(words[i - 1]['text'])][0] + '_' + match_key
-
-                    candidate_date_text = words[i]['text'].lstrip(':').strip()
-                    if is_date(candidate_date_text):
-                        results.append({match_key: candidate_date_text})
-                    else:
-                        # Look ahead for day, month, and year in the next few words
-                        for j in range(i + 1, min(i + 4, len(words))):
-                            next_word = words[j]['text']
-                            if is_day(next_word) or is_month(next_word) or is_year(next_word):
-                                candidate_date = ' '.join([words[k]['text'] for k in range(i, j + 1)])
-                                if is_date(candidate_date):
-                                    results.append({match_key: candidate_date})
-                                    break  # Found a valid date
-
-    return results
-
-
-
-
-
-
-def check_split_date_old(date_parts):
-    # Placeholder variables for day, month, and year
-    day, month, year = None, None, None
-
-    # Attempt to identify day, month, and year from the list of date parts
-    for part in date_parts:
-        if not day and is_day(part):
-            day = part
-        elif not month and is_month(part):
-            month = part
-        elif not year and is_year(part):
-            year = part
-
-    # If we've identified day, month, and year, try to form a valid date string
-    if day and month and year:
-        try:
-            # Handle numeric and textual month representations
-            if month.isdigit():
-                month_str = f"{int(month):02d}"  # Ensure two-digit format
-            else:
-                month_str = datetime.strptime(month, '%b').strftime('%m')  # Convert textual month to two-digit format
-            
-            # Form and validate the full date string
-            date_str = f"{year}-{month_str}-{day.zfill(2)}"  # Ensure day is two-digit
-            datetime.strptime(date_str, '%Y-%m-%d')
-            return date_str
-        except ValueError:
-            return None
     
-    return None
+def clean_date_string(date_str):
 
-
-def find_date_in_sequence(sequence):
-    # Generate all possible permutations of three elements from the sequence
-    for perm in permutations(sequence, 3):
-        # Check if the permutation forms a valid date sequence
-        date_str = check_split_date(perm)
-        if date_str:
-            return date_str
-
-def find_date_matches_v1(pdf_path, date_pattern, date_transaction_patterns):
-    with pdfplumber.open(pdf_path) as pdf:
-        results = []  # To store results
-
-        for page_num, page in enumerate(pdf.pages):
-            words = page.extract_words()  # Extract words with bounding box info
-
-            for i, word in enumerate(words):
-                if date_pattern.match(word['text']):
-
-                    match_key = 'date'
-
-                    if i > 0 and any(pattern.match(words[i - 1]['text']) for pattern in date_transaction_patterns.values()):
-                        match_key = [key for key, pattern in date_transaction_patterns.items() if pattern.match(words[i - 1]['text'])][0] + '_' + match_key
-
-                   
-                    for j in range(i + 1, min(i + 5, len(words))):
-                        candidate_date_text = words[j]['text']
-                        # Correctly handle ':' prefix in the candidate date text
-                        candidate_date_text = candidate_date_text.lstrip(':').strip()
-
-                        if is_date(candidate_date_text):
-                            results.append({match_key: candidate_date_text })
-                            break
-                        
-                        ### append candidate_date_text to date_words_list across the loop
-                        # after the loop, call function check split date which needs to be written, it goes through the elements the list and if e_1 is dd, e_2 is mm, e_3 is yy then returns e_1, e_2, e_3 also checks for mm, dd, yy
-
-    return results
+    cleaned_str = date_str.replace('\xad', ' ')
+    cleaned_str = re.sub(r'\s+', ' ', cleaned_str).strip()
+    return cleaned_str
 
 
 def check_split_date(date_parts):
@@ -180,7 +132,8 @@ def check_split_date(date_parts):
    # print("here")
     # Identify the position of the year in the list
     for i, part in enumerate(date_parts):
-     #   print(part)
+       # print("part")
+       # print(part)
         if is_year(part):
     #        print(part)
             year_index = i
@@ -195,7 +148,7 @@ def check_split_date(date_parts):
 
     return potential_date_parts
 
-def find_date_matches(pdf_path, date_pattern, date_transaction_patterns):
+def find_date_matches_right(pdf_path, date_pattern, date_transaction_patterns):
     with pdfplumber.open(pdf_path) as pdf:
         results = []  # To store results
 
@@ -222,17 +175,21 @@ def find_date_matches(pdf_path, date_pattern, date_transaction_patterns):
                        
                         candidate_date_text = words[j]['text'].lstrip(':').strip()
                        # print(candidate_date_text)
+                       # print(is_date(candidate_date_text))
                         if is_date(candidate_date_text):
+                            
+                           # print(candidate_date_text)
                          #   found_date = True
-                            results.append({match_key: candidate_date_text})
+                            results.append({match_key: clean_date_string(candidate_date_text)})
                             
                             #break
                         date_words_list.append(candidate_date_text)
                     
-
+                  #  print(date_words_list)  
                     checked_date = check_split_date(date_words_list) 
+                  #  print(checked_date)
                     if checked_date:
-                            results.append({match_key: checked_date})
+                            results.append({match_key: clean_date_string(checked_date)})
                            # print(results)
                             break  # Stop after finding a valid date
 
@@ -243,8 +200,9 @@ def find_date_matches(pdf_path, date_pattern, date_transaction_patterns):
 
 def parse_date_matches(date_match_list):
 
-    #print(date_match_list)
+   # print(date_match_list)
     values_by_key = {}
+    #print(date_match_list)
 
     for entry in date_match_list:
         for key, value in entry.items():
@@ -252,8 +210,6 @@ def parse_date_matches(date_match_list):
 
     #selected_values = {key: Counter(values).most_common(1)[0][0] for key, values in values_by_key.items()}
     selected_values = {key: max(values, key=len) for key, values in values_by_key.items()}
-
-
 
     #print(selected_values)
 
@@ -271,13 +227,149 @@ def parse_date_matches(date_match_list):
 
 
 
+
+def calculate_heuristic(bbox, cbox):
+
+   vertical_distance =  cbox[1] - bbox[1]
+
+   left_horizontal_diff = abs(cbox[2] - bbox[2])
+
+   right_horizontal_diff = abs(cbox[3] - bbox[3])
+
+   return vertical_distance + left_horizontal_diff + right_horizontal_diff
+
+def find_variable_down_with_closeness_score(pdf, patterns, calculate_score_function):
+    results = []  # To store results
+
+    for page in pdf.pages:
+        words = page.extract_words()  # Extract words with bounding box info
+
+        for i, word in enumerate(words):
+            # Check sequence of patterns
+            match_sequence = True
+            matched_words = []
+
+            for j, pattern in enumerate(patterns):
+                if i + j < len(words) and pattern.match(words[i + j]['text']):
+                    matched_words.append(words[i + j])
+                else:
+                    match_sequence = False
+                    break
+
+            if match_sequence and len(matched_words) == len(patterns):
+                # Calculate the resultant bounding box
+                bbox_coords = [(word['bottom'], word['top'], word['x0'], word['x1']) for word in matched_words]
+                resultant_bbox = (
+                    max(word[0] for word in bbox_coords),
+                    min(word[1] for word in bbox_coords),
+                    min(word[2] for word in bbox_coords),
+                    max(word[3] for word in bbox_coords),
+                )
+
+                # Finding the best candidate based on closeness score
+                best_candidate = None
+                min_score = float('inf')  
+                for candidate in words[i + len(patterns):]:
+                    c_box = (candidate['bottom'], candidate['top'], candidate['x0'], candidate['x1'])
+                    score = calculate_score_function(resultant_bbox, c_box)
+                    if score < min_score:
+                        min_score = score
+                        best_candidate = candidate['text']
+
+                if best_candidate:
+                    results.append({
+                        'page': page.page_number,
+                        'best_candidate': best_candidate,
+                        'matched_sequence': [word['text'] for word in matched_words],
+                        'resultant_bbox': resultant_bbox,
+                        'score': min_score,
+                    })
+                    break  
+
+    return results
+
+def find_variable_down_fcfs(pdf, patterns):
+    results = []  # Store results from all pages
+
+    for page in pdf.pages:
+        words = page.extract_words()  # Extract words with bounding box info
+        for i in range(len(words)):
+            # Check sequence of patterns
+            match_sequence = True
+            matched_words = []
+
+            for j, pattern in enumerate(patterns):
+                if i + j < len(words) and pattern.match(words[i + j]['text']):
+                    matched_words.append(words[i + j])
+                else:
+                    match_sequence = False
+                    break
+
+            if match_sequence and len(matched_words) == len(patterns):
+                # Calculate the resultant bounding box from the matched sequence
+                bbox_coords = [(word['bottom'], word['top'], word['x0'], word['x1']) for word in matched_words]
+                resultant_bbox = (
+                    max(word[0] for word in bbox_coords),  # Max bottom
+                    min(word[1] for word in bbox_coords),  # Min top
+                    min(word[2] for word in bbox_coords),  # Min left (x0)
+                    max(word[3] for word in bbox_coords),  # Max right (x1)
+                )
+
+                # Finding candidates below this bounding box
+                candidates = []
+                for candidate in words[i + len(patterns):]:  # Start searching from the word after the matched sequence
+                    c_box = candidate['bottom'], candidate['top'], candidate['x0'], candidate['x1']
+            
+                    if c_box[1] > resultant_bbox[1] and (c_box[2] < resultant_bbox[3] and c_box[3] > resultant_bbox[2]):
+                        candidates.append(candidate['text'])
+                    if len(candidates) == 3:  
+                        break
+
+                if candidates:
+                    results.append({
+                        'page': page.page_number,
+                        'candidates': candidates,
+                        'matched_sequence': [word['text'] for word in matched_words],
+                        'resultant_bbox': resultant_bbox,
+                    })
+                    break  
+
+    return results
+
+
+def find_transcation_match_down_from_pdf_path(pdf_path, down_patterns, variable_name, score_function, check_format_func, check_variable_type):
+
+    with pdfplumber.open(pdf_path) as pdf:
+        result = find_variable_down_with_closeness_score(pdf, down_patterns,score_function)
+        if result:
+
+            if result[0]['best_candidate'] is not None:
+
+                if check_format_func(check_variable_type, result[0]['best_candidate']):
+
+                    return {variable_name : result[0]['best_candidate']}
+
+
+
 def date_main(pdf_name):
+   
     verbose=True
-    #output = find_transaction_patterns(pdf_name, right_patterns_dict, down_patterns_dict_list, other_right_patterns_dict, check_variable_format, calculate_heuristic, "transaction_number")
+    output =  parse_date_matches(find_date_matches_right(pdf_name, date_pattern, date_transaction_patterns))
     
-    output =  parse_date_matches(find_date_matches(pdf_name, date_pattern, date_transaction_patterns))
-    if verbose:
-   #     print(pdf_name)
-         print(output)
+    if output:
+
+       if verbose:
+    #     print(pdf_name)
+          print(output)
     #     print('\n')
+       return output
+    
+
+    else:
+
+        output =  find_transcation_match_down_from_pdf_path(pdf_name, [date_pattern], "date", calculate_heuristic, check_variable_format, "date" ) 
+
     return output
+
+
+    
